@@ -6,16 +6,26 @@
 <title>Cyberpunk 2020 — Matrix Calculator</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
+<!-- ╔═══════════════════════════════════════════════════════════════╗
+     ║  ИНСТРУКЦИЯ ПО ПОДКЛЮЧЕНИЮ FIREBASE (МУЛЬТИПЛЕЕР)            ║
+     ║  1. Зайди на https://console.firebase.google.com             ║
+     ║  2. Создай проект (Add project)                              ║
+     ║  3. Нажми </> (Web App), скопируй firebaseConfig            ║
+     ║  4. Build → Realtime Database → Create database              ║
+     ║  5. Правила: { "rules": {".read":true, ".write":true} }      ║
+     ║  6. Заполни FIREBASE_CONFIG ниже и смени USE_FIREBASE=true   ║
+     ╚═══════════════════════════════════════════════════════════════╝ -->
 <script>
-const.USE_FIREBASE = true; 
-const firebaseConfig = {
-  apiKey: "AIzaSyBjgMtXFqH4o8_WO-SLJRCs25w-On5awYc",
-  authDomain: "netrunning-58ad3.firebaseapp.com",
-  projectId: "netrunning-58ad3",
-  storageBucket: "netrunning-58ad3.firebasestorage.app",
+window.USE_FIREBASE = true;
+window.FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBjgMtXFqH4o8_WO-SLJRCs25w-On5awYc",
+  authDomain:        "netrunning-58ad3.firebaseapp.com",
+  databaseURL:       "https://netrunning-58ad3-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId:         "netrunning-58ad3",
+  storageBucket:     "netrunning-58ad3.firebasestorage.app",
   messagingSenderId: "1021953072176",
-  appId: "1:1021953072176:web:2dcc308957d042cf1261f5",
-  measurementId: "G-Z2K03PQKD5"
+  appId:             "1:1021953072176:web:1ad093b2e44edefc1261f5",
+  measurementId:     "G-RQR5LLQH9S"
 };
 </script>
 
@@ -53,7 +63,7 @@ const C={
   rdl:'#ee4455',rdll:'#ff7788',
   cyl:'#00b8d9',cyll:'#33ddff',
   gnl:'#00cc80',gnll:'#44ffaa',
-  org:'#ff8833',
+  org:'#ff8833',prp:'#cc55ff',
   tx:'#cec4a0',txb:'#ede8cc',txd:'#556070',txdd:'#2e3e4e',
   fn:"'Share Tech Mono',monospace",
   or:"'Orbitron',sans-serif"
@@ -180,7 +190,7 @@ function App(){
     return()=>unsubs.current.forEach(f=>f?.());
   },[]);
 
-  useEffect(()=>{if(logRef.current)logRef.current.scrollTop=logRef.current.scrollHeight;},[logs]);
+  // scroll is handled inside LogPanel with smart bottom-detection
 
   const boot=(id,p)=>{
     setMyId(id);setMyP(p);setViewId(id);setPhase('main');
@@ -287,6 +297,20 @@ function App(){
     return up;
   };
 
+  // Кнопка 1 — «ГЛЮК»: применяет случайный баг к персонажу (как при провале)
+  const onGlitch=async()=>{
+    if(!myP)return;
+    await addRandBug(myP);
+  };
+
+  // Кнопка 2 — «СКАНИРОВАТЬ»: показывает случайный баг в логе, не применяет
+  const onScan=async()=>{
+    if(!myP)return;
+    const id=Math.floor(Math.random()*10)+1;
+    const bug=BUGS.find(b=>b.id===id);
+    await addLog(`🔍 МАТРИЦА СКАНИРУЕТ: Баг #${id} «${bug?.label}» — ${bug?.desc}`,myP,'','system');
+  };
+
   const onRollAtk=async(prog,manBonus)=>{
     if(!myP)return null;
     const progs=myP.programs||[];
@@ -363,7 +387,7 @@ function App(){
   if(phase==='login')return<Login onLogin={onLogin}/>;
 
   return<div style={{position:'fixed',inset:0,display:'flex',flexDirection:'column',background:C.bg,fontFamily:C.fn,color:C.tx}}>
-    <TopBar myP={myP} onLogout={onLogout} onInit={()=>setModal({t:'init'})}/>
+    <TopBar myP={myP} onLogout={onLogout} onInit={()=>setModal({t:'init'})} onGlitch={onGlitch} onScan={onScan}/>
     <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
       {myP?.isGM&&<Roster roster={roster} myId={myId} viewId={viewId} onSel={setViewId}/>}
       {vP?<Sheet profile={vP} isOwn={isOwn}
@@ -423,19 +447,29 @@ function Login({onLogin}){
 }
 
 // ── TopBar ─────────────────────────────────────────────
-function TopBar({myP,onLogout,onInit}){
-  return<div style={{background:C.pan,borderBottom:'1px solid '+C.brd,height:52,display:'flex',alignItems:'center',padding:'0 18px',gap:16,flexShrink:0,position:'relative'}}>
+function TopBar({myP,onLogout,onInit,onGlitch,onScan}){
+  return<div style={{background:C.pan,borderBottom:'1px solid '+C.brd,height:52,display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0,position:'relative'}}>
     <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,transparent,'+C.aml+','+C.rdl+','+C.cyl+',transparent)',opacity:0.6}}/>
     <span style={{fontFamily:C.or,fontSize:16,color:C.aml,letterSpacing:3,fontWeight:700,flexShrink:0}}>CP2020</span>
     <span style={{fontSize:11,color:C.brdl,letterSpacing:2,flexShrink:0}}>MATRIX CALC</span>
     <div style={{flex:1}}/>
-    <button onClick={onInit} style={{...SB(C.cyl,C.cyl,{fontSize:13,padding:'7px 20px',flexShrink:0,letterSpacing:2})}}>🎲 ИНИЦИАТИВА</button>
+    {/* Scan: random bug preview, no apply */}
+    <button onClick={onScan} title="Показать случайный Баг в логе без применения"
+      style={{...SB(C.prp+'88',C.prp,{fontSize:12,padding:'6px 14px',flexShrink:0,letterSpacing:1})}}>
+      🔍 СКАНИРОВАТЬ
+    </button>
+    {/* Glitch: apply random bug immediately */}
+    <button onClick={onGlitch} title="Применить случайный Баг к персонажу (как при Крит. Провале)"
+      style={{...SB(C.rdl,C.rdl,{fontSize:12,padding:'6px 14px',flexShrink:0,letterSpacing:1})}}>
+      ⚡ ГЛЮК
+    </button>
+    <button onClick={onInit} style={{...SB(C.cyl,C.cyl,{fontSize:12,padding:'6px 16px',flexShrink:0,letterSpacing:2})}}>🎲 ИНИЦИАТИВА</button>
     {myP&&<>
       <div style={{width:11,height:11,borderRadius:'50%',background:myP.color,flexShrink:0,boxShadow:'0 0 9px '+myP.color}}/>
-      <span style={{fontSize:14,color:myP.color,flexShrink:0,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myP.handle}</span>
+      <span style={{fontSize:14,color:myP.color,flexShrink:0,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myP.handle}</span>
       {myP.isGM&&<span style={{fontSize:10,color:C.rdl,border:'1px solid '+C.rdl+'66',padding:'2px 8px',flexShrink:0}}>GM</span>}
     </>}
-    <button onClick={onLogout} style={{...SB(C.brd,C.txd,{fontSize:11,padding:'6px 14px',flexShrink:0})}}>ВЫХОД</button>
+    <button onClick={onLogout} style={{...SB(C.brd,C.txd,{fontSize:11,padding:'5px 13px',flexShrink:0})}}>ВЫХОД</button>
   </div>;
 }
 
@@ -857,6 +891,22 @@ function renderDetail(entry){
 
 function LogPanel({logs,logRef}){
   const [open,setOpen]=useState(true);
+  // Track whether user is scrolled to (near) the bottom
+  const atBottomRef=useRef(true);
+
+  // Only auto-scroll when user is already at bottom
+  useEffect(()=>{
+    const el=logRef.current;
+    if(!el||!open)return;
+    if(atBottomRef.current) el.scrollTop=el.scrollHeight;
+  },[logs,open]);
+
+  const onScroll=e=>{
+    const el=e.currentTarget;
+    // Consider "at bottom" if within 60px of the bottom
+    atBottomRef.current=(el.scrollHeight-el.scrollTop-el.clientHeight)<60;
+  };
+
   return<div style={{background:C.pan,borderTop:'1px solid '+C.brd,height:open?270:44,transition:'height 0.2s',display:'flex',flexDirection:'column',flexShrink:0}}>
     <div onClick={()=>setOpen(o=>!o)} style={{padding:'10px 18px',borderBottom:open?'1px solid '+C.brd:'none',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',flexShrink:0}}>
       <div style={{display:'flex',alignItems:'center',gap:14}}>
@@ -865,7 +915,7 @@ function LogPanel({logs,logRef}){
       </div>
       <span style={{fontSize:14,color:C.brdl}}>{open?'▼':'▲'}</span>
     </div>
-    {open&&<div ref={logRef} style={{flex:1,overflowY:'auto',padding:'8px 16px'}}>
+    {open&&<div ref={logRef} onScroll={onScroll} style={{flex:1,overflowY:'auto',padding:'8px 16px'}}>
       {logs.length===0&&<div style={{fontSize:13,color:C.txd,padding:'10px 0'}}>// ожидание активности...</div>}
       {logs.map(e=><div key={e.id} style={{marginBottom:12,padding:'8px 13px',borderLeft:'3px solid '+(e.type==='fumble'?C.rdl:e.type==='crit'?C.aml:e.type==='system'?C.cyl:e.color+'88'),background:'rgba(255,255,255,0.016)'}}>
         <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
